@@ -1,0 +1,41 @@
+security:
+    password_hashers:
+        App\Entity\User: 'auto'
+    providers:
+        db_users:
+            entity:
+                class: App\Entity\User
+                property: email
+        in_memory_users:
+            memory:
+                users:
+                    admin:
+                        password: '$2y$10$O3nheUHQE6UJN5TO/k1fWO0X6EcfwHTs1zenm8kcrXBbUDCjj6PtS'
+                        roles: ['ROLE_USER']
+
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+
+        login:
+            pattern: ^/login
+            security: false
+
+        main:
+            pattern: ^/
+            provider: db_users
+            form_login:
+                login_path: app_login
+                check_path: app_login
+                default_target_path: /board
+            logout:
+                path: app_logout
+                enable_csrf: true
+
+    access_control:
+        - { path: ^/login, roles: IS_AUTHENTICATED_ANONYMOUSLY }
+        - { path: ^/logout, roles: IS_AUTHENTICATED_ANONYMOUSLY }
+        - { path: ^/status, roles: IS_AUTHENTICATED_ANONYMOUSLY }
+        # - { path: ^/api, roles: ROLE_USER }
+        - { path: ^/logs, roles: ROLE_USER }

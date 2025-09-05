@@ -1,0 +1,2139 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 350px;
+            min-width: 350px;
+            background: #f8f9fa;
+            border-right: 1px solid #e0e0e0;
+            padding: 15px;
+            overflow-y: auto;
+            z-index: 1000;
+            flex-shrink: 0;
+        }
+
+        .sidebar h3 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+
+        .whiteboard {
+            flex: 1;
+            position: relative;
+            background: #fff;
+            overflow: hidden;
+            width: 100%;
+            height: 100vh;
+            min-height: 100vh;
+        }
+
+        .whiteboard.none-mode {
+            cursor: default;
+        }
+
+        .whiteboard.pan-mode {
+            cursor: grab;
+        }
+
+        .whiteboard.pan-mode.panning {
+            cursor: grabbing;
+        }
+
+        .whiteboard.pen-mode {
+            cursor: crosshair;
+        }
+
+        .whiteboard.eraser-mode {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="red" stroke-width="2"/></svg>') 10 10, auto;
+        }
+
+        .whiteboard.sticky-mode {
+            cursor: copy;
+        }
+
+        .board-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 3000px;
+            height: 2000px;
+            transform-origin: 0 0;
+            background: radial-gradient(circle, #ddd 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .drawing-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .board-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        .zoom-indicator {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 10;
+        }
+
+        .toolbar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 15px;
+            padding: 20px 15px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255,255,255,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 10;
+            width: 70px;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .tool-btn {
+            padding: 12px;
+            border: 2px solid transparent;
+            background: linear-gradient(145deg, #ffffff 0%, #f0f2f5 100%);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 20px;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .tool-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            background: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+
+        .tool-btn.active {
+            background: linear-gradient(145deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .color-btn {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.8);
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .color-btn:hover {
+            transform: scale(1.2);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+        }
+
+        .color-btn.active {
+            border-color: #333;
+            transform: scale(1.2);
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .size-palette {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .size-btn {
+            width: 25px;
+            height: 25px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .size-btn:hover {
+            background: #f0f0f0;
+            transform: scale(1.1);
+        }
+
+        .size-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .size-btn:nth-child(1) { font-size: 8px; }
+        .size-btn:nth-child(2) { font-size: 12px; }
+        .size-btn:nth-child(3) { font-size: 16px; }
+        .size-btn:nth-child(4) { font-size: 20px; }
+
+        .roulette-wheel {
+            width: 150px;
+            height: 150px;
+            border: 5px solid #667eea;
+            border-radius: 50%;
+            margin: 20px auto;
+            position: relative;
+            cursor: pointer;
+            background: conic-gradient(
+                #ff4757 0deg 60deg,
+                #2ecc71 60deg 120deg,
+                #3498db 120deg 180deg,
+                #f39c12 180deg 240deg,
+                #9b59b6 240deg 300deg,
+                #e74c3c 300deg 360deg
+            );
+            transition: transform 3s ease-out;
+        }
+
+        .roulette-wheel::after {
+            content: '🎯';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+        }
+
+        #map-container {
+            height: 200px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .map-controls {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0;
+        }
+
+        .map-btn {
+            flex: 1;
+            font-size: 10px;
+            padding: 5px;
+        }
+
+        .sticky-note {
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 8px;
+            padding: 15px;
+            cursor: move;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+            color: #333;
+            outline: none;
+            z-index: 3;
+            line-height: 1.4;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+            display: flex;
+            align-items: flex-start;
+            box-sizing: border-box;
+        }
+
+        .sticky-note.editing {
+            cursor: text;
+            border-color: #4CAF50;
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
+            align-items: stretch;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #ff4757;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+            transition: all 0.2s ease;
+            z-index: 20;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .delete-btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
+            background: #ff3742;
+        }
+
+        .image-container {
+            position: absolute;
+            display: inline-block;
+        }
+
+        .draggable-image {
+            transition: opacity 0.2s, border 0.2s;
+            border-radius: 4px;
+        }
+
+        .draggable-image:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            margin: 10px 0;
+        }
+
+        .calendar-day {
+            padding: 4px;
+            text-align: left;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            font-size: 12px;
+            height: 60px;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        .calendar-day:hover {
+            background: #f8f9fa;
+        }
+
+        .day-number {
+            font-weight: bold;
+            padding: 2px 0;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .day-events {
+            flex: 1;
+            overflow: hidden;
+            padding: 2px;
+        }
+
+        .calendar-event {
+            font-size: 9px;
+            padding: 1px 3px;
+            margin: 1px 0;
+            border-radius: 2px;
+            color: white;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .calendar-event:hover {
+            opacity: 0.8;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .calendar-header button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="app-container">
+    <div class="sidebar">
+        <h3>📅 Calendrier</h3>
+        <div class="calendar-panel">
+            <div class="calendar-header">
+                <button onclick="WhiteBoard.calendar.previousMonth()">‹</button>
+                <span id="calendar-month-year"></span>
+                <button onclick="WhiteBoard.calendar.nextMonth()">›</button>
+            </div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
+
+        <h3>🗺️ Carte Mondiale</h3>
+        <div id="map-container"></div>
+        <div class="map-controls">
+            <button class="map-btn" onclick="WhiteBoard.map.addMarkerMode()">📍 Ajouter</button>
+            <button class="map-btn" onclick="WhiteBoard.map.clearMarkers()">🧹 Effacer</button>
+        </div>
+        <div id="map-status" style="font-size:12px; margin-top:10px;"></div>
+
+        <h3>🎲 Roulette Magique</h3>
+        <div class="roulette-wheel" id="roulette-wheel" onclick="WhiteBoard.roulette.spin()"></div>
+        <div id="roulette-result" style="text-align: center; font-weight: bold; margin-top: 10px;"></div>
+
+        <h3>💾 Données</h3>
+        <button class="btn" onclick="WhiteBoard.loadAll()" style="width: 100%; margin: 5px 0; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">📥 Charger données</button>
+        <button class="btn" onclick="WhiteBoard.saveAll()" style="width: 100%; margin: 5px 0; padding: 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">💾 Sauvegarder</button>
+
+        <h3>🖼️ Images</h3>
+        <input type="file" id="image-upload" accept="image/*" style="width: 100%; margin: 10px 0;">
+    </div>
+
+    <div class="whiteboard none-mode" id="whiteboard">
+        <div class="board-container" id="board-container">
+            <canvas class="drawing-canvas" id="drawing-canvas"></canvas>
+            <div class="board-layer" id="board-layer"></div>
+        </div>
+        
+        <div class="zoom-indicator" id="zoom-indicator">100%</div>
+
+        <div class="toolbar">
+            <button class="tool-btn active" onclick="WhiteBoard.selectTool('none')" title="Aucun outil">🚫</button>
+            <button class="tool-btn" onclick="WhiteBoard.selectTool('pan')" title="Naviguer">🤚</button>
+            <button class="tool-btn" onclick="WhiteBoard.selectTool('pen')" title="Dessiner">✏️</button>
+            <button class="tool-btn" onclick="WhiteBoard.selectTool('eraser')" title="Gomme">🧽</button>
+            <button class="tool-btn" onclick="WhiteBoard.selectTool('sticky')" title="Post-it">📝</button>
+            <button class="tool-btn" onclick="WhiteBoard.clearCanvas()" title="Effacer">🗑️</button>
+
+            <div class="color-palette">
+                <div class="color-btn active" style="background: #000" onclick="WhiteBoard.selectColor('#000')"></div>
+                <div class="color-btn" style="background: #ff4757" onclick="WhiteBoard.selectColor('#ff4757')"></div>
+                <div class="color-btn" style="background: #2ecc71" onclick="WhiteBoard.selectColor('#2ecc71')"></div>
+                <div class="color-btn" style="background: #3498db" onclick="WhiteBoard.selectColor('#3498db')"></div>
+                <div class="color-btn" style="background: #f39c12" onclick="WhiteBoard.selectColor('#f39c12')"></div>
+                <div class="color-btn" style="background: #9b59b6" onclick="WhiteBoard.selectColor('#9b59b6')"></div>
+            </div>
+            
+            <div class="size-palette">
+                <button class="size-btn active" onclick="WhiteBoard.selectSize(1)">•</button>
+                <button class="size-btn" onclick="WhiteBoard.selectSize(3)">•</button>
+                <button class="size-btn" onclick="WhiteBoard.selectSize(5)">•</button>
+                <button class="size-btn" onclick="WhiteBoard.selectSize(8)">•</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        window.WhiteBoard = {
+            // État global
+            currentTool: 'none',
+            currentColor: '#000',
+            currentSize: 2,
+            zoom: 1,
+            panX: 0,
+            panY: 0,
+            isDrawing: false,
+            isPanning: false,
+            lastX: 0,
+            lastY: 0,
+            panStartX: 0,
+            panStartY: 0,
+            isErasing: false,
+            
+            // Sauvegarde automatique
+            saveTimeout: null,
+            saveDelay: 1000,
+            isSaving: false,
+            
+            // Canvas et contexte
+            canvas: null,
+            ctx: null,
+            whiteboard: null,
+            boardContainer: null,
+
+            // Couleurs pastels pour les post-its
+            pastelColors: [
+                '#FFE5E5', '#E5F3FF', '#E5FFE5', '#FFFFE5', '#F0E5FF',
+                '#FFE5F0', '#E5FFFF', '#FFF0E5', '#F5FFE5', '#E5F0FF'
+            ],
+
+            init: function() {
+                console.log('Initialisation WhiteBoard...');
+                
+                // Récupérer les éléments DOM - FIX: utiliser le bon ID
+                this.canvas = document.getElementById('drawing-canvas');
+                this.whiteboard = document.getElementById('whiteboard');
+                this.boardContainer = document.getElementById('board-container');
+                
+                if (!this.canvas) {
+                    console.error('Canvas non trouvé !');
+                    return;
+                }
+                
+                this.ctx = this.canvas.getContext('2d');
+                this.canvas.width = 3000;
+                this.canvas.height = 2000;
+                
+                // Configuration du contexte
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
+                this.ctx.lineWidth = this.currentSize;
+                this.ctx.strokeStyle = this.currentColor;
+                
+                this.setupEvents();
+                this.calendar.init();
+                this.map.init();
+                
+                // Charger les données existantes
+                setTimeout(() => {
+                    this.loadAll();
+                }, 500);
+                
+                console.log('WhiteBoard initialisé avec succès');
+            },
+
+            setupEvents: function() {
+                if (!this.whiteboard) return;
+                
+                this.whiteboard.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                this.whiteboard.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                this.whiteboard.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+                this.whiteboard.addEventListener('mouseleave', (e) => this.handleMouseUp(e));
+                this.whiteboard.addEventListener('wheel', (e) => this.handleWheel(e));
+                
+                const imageUpload = document.getElementById('image-upload');
+                if (imageUpload) {
+                    imageUpload.addEventListener('change', (e) => this.handleImageUpload(e));
+                }
+            },
+
+            handleMouseDown: function(e) {
+                // Safe zones et vérifications
+                if (e.target.classList.contains('sticky-note') || 
+                    e.target.classList.contains('delete-btn') ||
+                    e.target.closest('.sticky-note') ||
+                    e.target.closest('.image-container') ||
+                    e.target.closest('.toolbar') ||
+                    e.target.closest('.sidebar')) {
+                    return;
+                }
+                
+                const coords = this.getRelativeCoords(e);
+                
+                if (this.currentTool === 'pan') {
+                    this.isPanning = true;
+                    this.panStartX = e.clientX;
+                    this.panStartY = e.clientY;
+                    this.whiteboard.classList.add('panning');
+                } else if (this.currentTool === 'pen') {
+                    this.isDrawing = true;
+                    this.lastX = coords.x;
+                    this.lastY = coords.y;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(coords.x, coords.y);
+                } else if (this.currentTool === 'eraser') {
+                    this.isErasing = true;
+                    this.erase(coords.x, coords.y);
+                } else if (this.currentTool === 'sticky') {
+                    this.createStickyNote(coords.x, coords.y);
+                }
+            },
+
+            handleMouseMove: function(e) {
+                if (this.isPanning) {
+                    const deltaX = e.clientX - this.panStartX;
+                    const deltaY = e.clientY - this.panStartY;
+                    
+                    this.panX += deltaX;
+                    this.panY += deltaY;
+                    
+                    this.updateTransform();
+                    
+                    this.panStartX = e.clientX;
+                    this.panStartY = e.clientY;
+                } else if (this.isDrawing && this.currentTool === 'pen') {
+                    const coords = this.getRelativeCoords(e);
+                    
+                    this.ctx.lineTo(coords.x, coords.y);
+                    this.ctx.stroke();
+                    
+                    this.lastX = coords.x;
+                    this.lastY = coords.y;
+                    
+                    this.saveCanvasOnly();
+                } else if (this.isErasing && this.currentTool === 'eraser') {
+                    const coords = this.getRelativeCoords(e);
+                    this.erase(coords.x, coords.y);
+                    this.saveCanvasOnly();
+                }
+            },
+
+            handleMouseUp: function(e) {
+                this.isPanning = false;
+                this.isDrawing = false;
+                this.isErasing = false;
+                if (this.whiteboard) {
+                    this.whiteboard.classList.remove('panning');
+                }
+            },
+
+            handleWheel: function(e) {
+                e.preventDefault();
+                
+                const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                const newZoom = Math.max(0.1, Math.min(5, this.zoom * zoomFactor));
+                
+                const rect = this.whiteboard.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                const zoomRatio = newZoom / this.zoom;
+                this.panX = mouseX - (mouseX - this.panX) * zoomRatio;
+                this.panY = mouseY - (mouseY - this.panY) * zoomRatio;
+                
+                this.zoom = newZoom;
+                this.updateTransform();
+                this.updateZoomIndicator();
+            },
+
+            getRelativeCoords: function(e) {
+                const canvasRect = this.canvas.getBoundingClientRect();
+                const clientX = e.clientX - canvasRect.left;
+                const clientY = e.clientY - canvasRect.top;
+                
+                return {
+                    x: (clientX - this.panX) / this.zoom,
+                    y: (clientY - this.panY) / this.zoom
+                };
+            },
+
+            updateTransform: function() {
+                if (this.boardContainer) {
+                    const transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
+                    this.boardContainer.style.transform = transform;
+                }
+            },
+
+            updateZoomIndicator: function() {
+                const indicator = document.getElementById('zoom-indicator');
+                if (indicator) {
+                    indicator.textContent = `${Math.round(this.zoom * 100)}%`;
+                }
+            },
+
+            selectTool: function(tool) {
+                this.currentTool = tool;
+                
+                document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+                event.target.classList.add('active');
+                
+                if (this.whiteboard) {
+                    this.whiteboard.className = 'whiteboard ' + tool + '-mode';
+                }
+            },
+
+            selectColor: function(color) {
+                this.currentColor = color;
+                if (this.ctx) {
+                    this.ctx.strokeStyle = color;
+                }
+                
+                document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
+                event.target.classList.add('active');
+            },
+
+            selectSize: function(size) {
+                this.currentSize = size;
+                if (this.ctx) {
+                    this.ctx.lineWidth = size;
+                }
+                
+                document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('active'));
+                event.target.classList.add('active');
+            },
+
+            clearCanvas: function() {
+                if (confirm('Voulez-vous vraiment effacer tout le contenu ?')) {
+                    if (this.ctx) {
+                        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    }
+                    document.querySelectorAll('.sticky-note').forEach(note => note.remove());
+                    // Ne pas déclencher scheduleAutoSave pour éviter les rechargements
+                    this.saveCanvasOnly();
+                }
+            },
+
+            erase: function(x, y) {
+                if (!this.ctx) return;
+                
+                this.ctx.save();
+                this.ctx.globalCompositeOperation = 'destination-out';
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, 20, 0, 2 * Math.PI);
+                this.ctx.fill();
+                this.ctx.restore();
+            },
+
+            createStickyNote: function(x, y) {
+                const randomColor = this.pastelColors[Math.floor(Math.random() * this.pastelColors.length)];
+                
+                const note = document.createElement('div');
+                note.className = 'sticky-note';
+                note.contentEditable = true;
+                note.innerHTML = '<span class="note-placeholder" style="color: #999;">Double-cliquez pour éditer</span>';
+                note.style.left = x + 'px';
+                note.style.top = y + 'px';
+                note.style.backgroundColor = randomColor;
+                
+                // Générer un ID unique
+                note.dataset.noteId = 'note_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                
+                this.setupStickyNoteEvents(note);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.innerHTML = '×';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    this.deleteStickyNote(note);
+                };
+                
+                note.appendChild(deleteBtn);
+                const boardLayer = document.getElementById('board-layer');
+                if (boardLayer) {
+                    boardLayer.appendChild(note);
+                }
+                
+                // Sauvegarder immédiatement la nouvelle note
+                this.saveSingleStickyNote(note);
+            },
+
+            setupStickyNoteEvents: function(note) {
+                let isDragging = false;
+                let lastClickTime = 0;
+                const self = this;
+                
+                note.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    isDragging = false;
+                    
+                    const currentTime = Date.now();
+                    const isDoubleClick = currentTime - lastClickTime < 300;
+                    lastClickTime = currentTime;
+                    
+                    if (isDoubleClick && !note.classList.contains('editing')) {
+                        note.classList.add('editing');
+                        note.focus();
+                        
+                        if (note.innerHTML.includes('Double-cliquez pour éditer')) {
+                            note.innerHTML = '';
+                        }
+                        
+                        setTimeout(() => {
+                            const range = document.createRange();
+                            range.selectNodeContents(note);
+                            const selection = window.getSelection();
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        }, 10);
+                        
+                        return;
+                    }
+                    
+                    if (!note.classList.contains('editing')) {
+                        let offsetX = e.clientX - note.offsetLeft;
+                        let offsetY = e.clientY - note.offsetTop;
+                        
+                        const handleMouseMove = (e) => {
+                            isDragging = true;
+                            note.style.left = (e.clientX - offsetX) + 'px';
+                            note.style.top = (e.clientY - offsetY) + 'px';
+                        };
+                        
+                        const handleMouseUp = () => {
+                            document.removeEventListener('mousemove', handleMouseMove);
+                            document.removeEventListener('mouseup', handleMouseUp);
+                            
+                            if (isDragging) {
+                                // Si la note a un ID, la mettre à jour, sinon la sauvegarder
+                                if (note.dataset.noteId) {
+                                    self.updateStickyNote(note);
+                                } else {
+                                    self.saveSingleStickyNote(note);
+                                }
+                            }
+                        };
+                        
+                        document.addEventListener('mousemove', handleMouseMove);
+                        document.addEventListener('mouseup', handleMouseUp);
+                    }
+                });
+                
+                note.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.finalizeStickyNote(note);
+                    }
+                    if (e.key === 'Escape') {
+                        this.finalizeStickyNote(note);
+                    }
+                });
+                
+                document.addEventListener('mousedown', (e) => {
+                    if (note.classList.contains('editing') && 
+                        !note.contains(e.target) && 
+                        !e.target.closest('.toolbar') &&
+                        !e.target.closest('.sidebar')) {
+                        this.finalizeStickyNote(note);
+                    }
+                });
+            },
+
+            finalizeStickyNote: function(note) {
+                if (!note.classList.contains('editing')) return;
+                
+                note.classList.remove('editing');
+                const content = note.textContent.trim();
+                
+                const deleteBtn = note.querySelector('.delete-btn');
+                
+                if (content === '' || content === 'Double-cliquez pour éditer' || content === '×') {
+                    note.innerHTML = '<span class="note-placeholder" style="color: #999;">Double-cliquez pour éditer</span>';
+                } else {
+                    const cleanContent = content.replace('×', '').trim();
+                    if (cleanContent) {
+                        note.innerHTML = `<span class="note-content">${cleanContent}</span>`;
+                        // Si la note a un ID, la mettre à jour, sinon la sauvegarder
+                        if (note.dataset.noteId) {
+                            this.updateStickyNote(note);
+                        } else {
+                            this.saveSingleStickyNote(note);
+                        }
+                    } else {
+                        note.innerHTML = '<span class="note-placeholder" style="color: #999;">Double-cliquez pour éditer</span>';
+                    }
+                }
+                
+                if (deleteBtn) {
+                    note.appendChild(deleteBtn);
+                }
+            },
+
+            deleteStickyNote: function(note) {
+                const noteId = note.dataset.noteId;
+                
+                // Supprimer visuellement
+                note.remove();
+                
+                // Supprimer côté serveur si l'ID existe
+                if (noteId) {
+                    fetch(`/api/stickynotes/${noteId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    }).then(response => {
+                        if (response.ok) {
+                            console.log(`Post-it ${noteId} supprimé du serveur`);
+                        } else {
+                            console.warn(`Erreur suppression post-it ${noteId}:`, response.status);
+                        }
+                    }).catch(error => {
+                        console.error('Erreur suppression post-it:', error);
+                    });
+                }
+            },
+
+            updateStickyNote: function(note) {
+                const noteId = note.dataset.noteId;
+                
+                const content = note.querySelector('.note-content');
+                const text = content ? content.textContent.trim() : '';
+                
+                if (text && text !== 'Double-cliquez pour éditer') {
+                    const noteData = {
+                        text: text,
+                        x: parseInt(note.style.left) || 0,
+                        y: parseInt(note.style.top) || 0,
+                        color: note.style.backgroundColor || '#FFE5E5'
+                    };
+                    
+                    if (noteId) {
+                        // Mise à jour d'une note existante
+                        fetch(`/api/stickynotes/${noteId}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            credentials: 'same-origin',
+                            body: JSON.stringify(noteData)
+                        }).then(response => {
+                            if (!response.ok) {
+                                console.warn(`Erreur mise à jour post-it ${noteId}:`, response.status);
+                            }
+                        }).catch(error => {
+                            console.error('Erreur mise à jour post-it:', error);
+                        });
+                    } else {
+                        // Pas d'ID, donc c'est une nouvelle note à sauvegarder
+                        this.saveSingleStickyNote(note);
+                    }
+                }
+            },
+
+            saveSingleStickyNote: function(note) {
+                console.log('saveSingleStickyNote called with note:', note);
+                const content = note.querySelector('.note-content') || note.querySelector('.note-placeholder');
+                const text = content ? content.textContent.trim() : '';
+                console.log('Note text:', text);
+                
+                // Sauvegarder même avec le placeholder pour obtenir un ID réel
+                const noteData = {
+                    text: text === 'Double-cliquez pour éditer' ? '' : text,
+                    x: parseInt(note.style.left) || 0,
+                    y: parseInt(note.style.top) || 0,
+                    color: note.style.backgroundColor || '#FFE5E5'
+                };
+                
+                console.log('Sending noteData to API:', noteData);
+                fetch('/api/stickynotes/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify(noteData)
+                    }).then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        }
+                        throw new Error('Erreur sauvegarde post-it');
+                    }).then(data => {
+                        console.log('API response:', data);
+                        // Mettre à jour l'ID si retourné par le serveur
+                        if (data.id) {
+                            note.dataset.noteId = data.id;
+                            console.log('Updated note ID to:', data.id);
+                        }
+                    }).catch(error => {
+                        console.error('Erreur sauvegarde post-it:', error);
+                    });
+            },
+
+            handleImageUpload: function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                // Limiter la taille du fichier à 2MB
+                if (file.size > 2 * 1024 * 1024) {
+                    alert('Le fichier est trop volumineux (max 2MB)');
+                    e.target.value = '';
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    // Limiter la taille de l'URL base64 à 500KB
+                    if (evt.target.result.length > 500 * 1024) {
+                        alert('L\'image compressée est trop volumineuse (max 500KB)');
+                        return;
+                    }
+                    
+                    const img = document.createElement('img');
+                    img.src = evt.target.result;
+                    img.style.position = 'absolute';
+                    img.style.left = '100px';
+                    img.style.top = '100px';
+                    img.style.maxWidth = '200px';
+                    img.style.cursor = 'move';
+                    img.style.zIndex = '2';
+                    img.style.border = '2px solid transparent';
+                    img.style.borderRadius = '4px';
+                    img.className = 'draggable-image';
+                    
+                    // Générer un ID temporaire
+                    img.dataset.imageId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    
+                    const container = this.addDeleteButton(img);
+                    const boardLayer = document.getElementById('board-layer');
+                    if (boardLayer) {
+                        boardLayer.appendChild(container);
+                    }
+                    
+                    // Sauvegarder l'image sur le serveur
+                    this.saveNewImage(img, container);
+                };
+                reader.readAsDataURL(file);
+            },
+
+            saveNewImage: function(img, container) {
+                const imageData = {
+                    url: img.src,
+                    x: parseInt(container.style.left) || 100,
+                    y: parseInt(container.style.top) || 100,
+                    addedBy: 'user'
+                };
+                
+                fetch('/api/images/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(imageData)
+                }).then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    throw new Error('Erreur sauvegarde image');
+                }).then(data => {
+                    // Mettre à jour l'ID avec celui retourné par le serveur
+                    if (data.id) {
+                        img.dataset.imageId = data.id;
+                    }
+                }).catch(error => {
+                    console.error('Erreur sauvegarde image:', error);
+                });
+            },
+
+            addDeleteButton: function(element) {
+                const container = document.createElement('div');
+                container.style.position = 'absolute';
+                container.style.display = 'inline-block';
+                container.className = 'image-container';
+                
+                container.style.left = element.style.left;
+                container.style.top = element.style.top;
+                
+                element.style.left = '0';
+                element.style.top = '0';
+                element.style.position = 'relative';
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.innerHTML = '×';
+                deleteBtn.className = 'delete-btn';
+                
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.deleteImage(container);
+                });
+                
+                container.appendChild(element);
+                container.appendChild(deleteBtn);
+                
+                this.makeDraggable(container);
+                
+                return container;
+            },
+
+            makeDraggable: function(element) {
+                let isDragging = false;
+                let startX, startY, initialX, initialY;
+                const self = this;
+                
+                element.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    isDragging = true;
+                    
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    initialX = parseInt(element.style.left) || 0;
+                    initialY = parseInt(element.style.top) || 0;
+                    
+                    const handleMouseMove = (e) => {
+                        if (!isDragging) return;
+                        
+                        const deltaX = e.clientX - startX;
+                        const deltaY = e.clientY - startY;
+                        
+                        element.style.left = (initialX + deltaX) + 'px';
+                        element.style.top = (initialY + deltaY) + 'px';
+                    };
+                    
+                    const handleMouseUp = () => {
+                        isDragging = false;
+                        document.removeEventListener('mousemove', handleMouseMove);
+                        document.removeEventListener('mouseup', handleMouseUp);
+                        self.updateImage(element);
+                    };
+                    
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp);
+                });
+            },
+
+            scheduleAutoSave: function() {
+                if (this.saveTimeout) {
+                    clearTimeout(this.saveTimeout);
+                }
+                
+                this.saveTimeout = setTimeout(() => {
+                    this.saveAll();
+                }, this.saveDelay);
+            },
+
+            saveAll: function() {
+                if (this.isSaving) return;
+                this.isSaving = true;
+                
+                console.log('Début de la sauvegarde...');
+                
+                Promise.all([
+                    this.saveCanvas(),
+                    this.saveStickyNotes(),
+                    this.saveImages()
+                ]).then((results) => {
+                    console.log('Sauvegarde terminée:', results);
+                }).catch(error => {
+                    console.error('Erreur de sauvegarde:', error);
+                }).finally(() => {
+                    this.isSaving = false;
+                });
+            },
+
+            saveCanvas: function() {
+                if (!this.canvas) return Promise.resolve();
+                
+                const imageData = this.canvas.toDataURL();
+                
+                return fetch('/api/strokes/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        data: imageData,
+                        vector: null
+                    })
+                }).then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erreur sauvegarde canvas');
+                    }
+                    return response.json();
+                });
+            },
+
+            saveCanvasOnly: function() {
+                if (!this.canvas) return;
+                
+                // Débounce pour éviter trop de sauvegardes
+                if (this.canvasSaveTimeout) {
+                    clearTimeout(this.canvasSaveTimeout);
+                }
+                
+                this.canvasSaveTimeout = setTimeout(() => {
+                    const imageData = this.canvas.toDataURL();
+                    
+                    fetch('/api/strokes/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            data: imageData,
+                            vector: null
+                        })
+                    }).then(response => {
+                        if (!response.ok) {
+                            console.warn('Erreur sauvegarde canvas:', response.status);
+                        }
+                    }).catch(error => {
+                        console.error('Erreur sauvegarde canvas:', error);
+                    });
+                }, 1000); // Attendre 1 seconde avant de sauvegarder
+            },
+
+            saveStickyNotes: function() {
+                const notes = document.querySelectorAll('.sticky-note');
+                const promises = [];
+                
+                notes.forEach(note => {
+                    const content = note.querySelector('.note-content');
+                    const text = content ? content.textContent.trim() : '';
+                    
+                    if (text && text !== 'Double-cliquez pour éditer') {
+                        const noteData = {
+                            text: text,
+                            x: parseInt(note.style.left) || 0,
+                            y: parseInt(note.style.top) || 0,
+                            color: note.style.backgroundColor || '#FFE5E5',
+                            done: false
+                        };
+                        
+                        const promise = fetch('/api/stickynotes/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            credentials: 'same-origin',
+                            body: JSON.stringify(noteData)
+                        }).then(response => {
+                            if (!response.ok) {
+                                throw new Error('Erreur sauvegarde post-it');
+                            }
+                            return response.json();
+                        });
+                        
+                        promises.push(promise);
+                    }
+                });
+                
+                return Promise.all(promises);
+            },
+
+            saveImages: function() {
+                const images = document.querySelectorAll('.image-container');
+                const promises = [];
+                
+                images.forEach(container => {
+                    const img = container.querySelector('.draggable-image');
+                    if (img) {
+                        const imageData = {
+                            url: img.src,
+                            x: parseInt(container.style.left) || 0,
+                            y: parseInt(container.style.top) || 0,
+                            addedBy: 'user'
+                        };
+                        
+                        const promise = fetch('/api/images/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            credentials: 'same-origin',
+                            body: JSON.stringify(imageData)
+                        }).then(response => {
+                            if (!response.ok) {
+                                throw new Error('Erreur sauvegarde image');
+                            }
+                            return response.json();
+                        });
+                        
+                        promises.push(promise);
+                    }
+                });
+                
+                return Promise.all(promises);
+            },
+
+            loadAll: function() {
+                return Promise.all([
+                    this.loadCanvas(),
+                    this.loadStickyNotes(),
+                    this.loadImages()
+                ]).then(() => {
+                    console.log('Chargement complet réussi');
+                }).catch(error => {
+                    console.error('Erreur de chargement:', error);
+                });
+            },
+
+            loadCanvas: function() {
+                return fetch('/api/strokes/', {
+                    credentials: 'same-origin'
+                }).then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erreur chargement canvas');
+                    }
+                    return response.json();
+                }).then(data => {
+                    if (data.length > 0 && this.ctx) {
+                        const latestStroke = data[data.length - 1];
+                        if (latestStroke.data) {
+                            const img = new Image();
+                            img.onload = () => {
+                                this.ctx.drawImage(img, 0, 0);
+                            };
+                            img.src = latestStroke.data;
+                        }
+                    }
+                }).catch(error => {
+                    console.warn('Impossible de charger le canvas:', error);
+                });
+            },
+
+            loadStickyNotes: function() {
+                return fetch('/api/stickynotes/', {
+                    credentials: 'same-origin'
+                }).then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erreur chargement post-its');
+                    }
+                    return response.json();
+                }).then(notes => {
+                    notes.forEach(noteData => {
+                        this.createStickyNoteFromData(noteData);
+                    });
+                }).catch(error => {
+                    console.warn('Impossible de charger les post-its:', error);
+                });
+            },
+
+            loadImages: function() {
+                return fetch('/api/images/', {
+                    credentials: 'same-origin'
+                }).then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erreur chargement images');
+                    }
+                    return response.json();
+                }).then(images => {
+                    images.forEach(imageData => {
+                        this.createImageFromData(imageData);
+                    });
+                }).catch(error => {
+                    console.warn('Impossible de charger les images:', error);
+                });
+            },
+
+            createStickyNoteFromData: function(data) {
+                const note = document.createElement('div');
+                note.className = 'sticky-note';
+                note.contentEditable = true;
+                note.innerHTML = `<span class="note-content">${data.text}</span>`;
+                note.style.left = data.x + 'px';
+                note.style.top = data.y + 'px';
+                note.style.backgroundColor = data.color;
+                
+                // Définir l'ID de la note à partir des données serveur
+                note.dataset.noteId = data.id;
+                
+                this.setupStickyNoteEvents(note);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.innerHTML = '×';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    this.deleteStickyNote(note);
+                };
+                
+                note.appendChild(deleteBtn);
+                const boardLayer = document.getElementById('board-layer');
+                if (boardLayer) {
+                    boardLayer.appendChild(note);
+                }
+            },
+
+            createImageFromData: function(data) {
+                const img = document.createElement('img');
+                img.src = data.url;
+                img.style.position = 'absolute';
+                img.style.maxWidth = '200px';
+                img.style.cursor = 'move';
+                img.style.zIndex = '2';
+                img.style.border = '2px solid transparent';
+                img.style.borderRadius = '4px';
+                img.className = 'draggable-image';
+                
+                // Définir l'ID de l'image à partir des données serveur
+                img.dataset.imageId = data.id;
+                
+                const container = this.addDeleteButton(img);
+                container.style.left = data.x + 'px';
+                container.style.top = data.y + 'px';
+                
+                const boardLayer = document.getElementById('board-layer');
+                if (boardLayer) {
+                    boardLayer.appendChild(container);
+                }
+            },
+
+            deleteImage: function(container) {
+                console.log('deleteImage called with container:', container);
+                const img = container.querySelector('img');
+                console.log('Found img element:', img);
+                const imageId = img ? img.dataset.imageId : null;
+                console.log('Image ID:', imageId);
+                
+                // Supprimer visuellement
+                container.remove();
+                
+                // Supprimer côté serveur si l'ID existe
+                if (imageId) {
+                    console.log(`Attempting to delete image ${imageId} from server`);
+                    fetch(`/api/images/${imageId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    }).then(response => {
+                        console.log('Delete response:', response);
+                        if (response.ok) {
+                            console.log(`Image ${imageId} supprimée du serveur`);
+                        } else {
+                            console.warn(`Erreur suppression image ${imageId}:`, response.status);
+                        }
+                    }).catch(error => {
+                        console.error('Erreur suppression image:', error);
+                    });
+                }
+            },
+
+            updateImage: function(container) {
+                const img = container.querySelector('img');
+                const imageId = img ? img.dataset.imageId : null;
+                if (!imageId) return;
+                
+                const imageData = {
+                    x: parseInt(container.style.left) || 0,
+                    y: parseInt(container.style.top) || 0,
+                    url: img.src
+                };
+                
+                fetch(`/api/images/${imageId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(imageData)
+                }).then(response => {
+                    if (!response.ok) {
+                        console.warn(`Erreur mise à jour image ${imageId}:`, response.status);
+                    }
+                }).catch(error => {
+                    console.error('Erreur mise à jour image:', error);
+                });
+            },
+
+            calendar: {
+                currentDate: new Date(),
+                events: [],
+                selectedDate: null,
+                
+                init: function() {
+                    this.loadEvents();
+                    this.render();
+                },
+                
+                render: function() {
+                    const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                                      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+                    
+                    const monthYear = document.getElementById('calendar-month-year');
+                    if (monthYear) {
+                        monthYear.textContent = monthNames[this.currentDate.getMonth()] + ' ' + this.currentDate.getFullYear();
+                    }
+                    
+                    const grid = document.getElementById('calendar-grid');
+                    if (!grid) return;
+                    
+                    grid.innerHTML = '';
+                    
+                    const firstDay = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
+                    const startDate = new Date(firstDay);
+                    startDate.setDate(startDate.getDate() - firstDay.getDay());
+                    
+                    for (let i = 0; i < 42; i++) {
+                        const day = document.createElement('div');
+                        day.className = 'calendar-day';
+                        
+                        const dayNumber = document.createElement('div');
+                        dayNumber.className = 'day-number';
+                        dayNumber.textContent = startDate.getDate();
+                        day.appendChild(dayNumber);
+                        
+                        const eventsContainer = document.createElement('div');
+                        eventsContainer.className = 'day-events';
+                        day.appendChild(eventsContainer);
+                        
+                        if (startDate.getMonth() === this.currentDate.getMonth()) {
+                            day.style.opacity = '1';
+                        } else {
+                            day.style.opacity = '0.3';
+                        }
+                        
+                        // Ajouter les événements de ce jour
+                        const dayEvents = this.getEventsForDate(startDate);
+                        dayEvents.forEach(event => {
+                            const eventDiv = document.createElement('div');
+                            eventDiv.className = 'calendar-event';
+                            eventDiv.style.backgroundColor = event.color;
+                            eventDiv.textContent = event.title;
+                            eventDiv.title = `${event.title}${event.description ? ' - ' + event.description : ''}`;
+                            eventDiv.onclick = (e) => {
+                                e.stopPropagation();
+                                this.editEvent(event.id);
+                            };
+                            eventsContainer.appendChild(eventDiv);
+                        });
+                        
+                        // Événement de clic sur le jour
+                        day.onclick = () => {
+                            this.selectedDate = new Date(startDate);
+                            this.showAddEventDialog();
+                        };
+                        
+                        grid.appendChild(day);
+                        startDate.setDate(startDate.getDate() + 1);
+                    }
+                },
+                
+                getEventsForDate: function(date) {
+                    const dateStr = date.toISOString().split('T')[0];
+                    return this.events.filter(event => {
+                        const eventDate = new Date(event.start).toISOString().split('T')[0];
+                        return eventDate === dateStr;
+                    });
+                },
+                
+                showAddEventDialog: function() {
+                    const modal = this.createEventModal();
+                    document.body.appendChild(modal);
+                },
+                
+                createEventModal: function(existingEvent = null) {
+                    const modalId = 'event-modal-' + Date.now();
+                    const modal = document.createElement('div');
+                    modal.id = modalId;
+                    modal.className = 'event-modal';
+                    modal.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0,0,0,0.5);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        z-index: 10000;
+                    `;
+                    
+                    // Fermer le modal en cliquant sur l'arrière-plan
+                    modal.onclick = (e) => {
+                        if (e.target === modal) {
+                            modal.remove();
+                        }
+                    };
+                    
+                    const dialog = document.createElement('div');
+                    dialog.style.cssText = `
+                        background: white;
+                        padding: 20px;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                        max-width: 400px;
+                        width: 90%;
+                    `;
+                    
+                    const isEdit = existingEvent !== null;
+                    const dateStr = this.selectedDate ? this.selectedDate.toISOString().split('T')[0] : '';
+                    
+                    dialog.innerHTML = `
+                        <h3>${isEdit ? 'Modifier l\'événement' : 'Nouvel événement'}</h3>
+                        <form id="event-form">
+                            <div style="margin-bottom: 10px;">
+                                <label>Titre:</label><br>
+                                <input type="text" id="event-title" value="${existingEvent?.title || ''}" style="width: 100%; padding: 5px;" required>
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <label>Date:</label><br>
+                                <input type="date" id="event-date" value="${existingEvent ? new Date(existingEvent.start).toISOString().split('T')[0] : dateStr}" style="width: 100%; padding: 5px;" required>
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <label>Heure:</label><br>
+                                <input type="time" id="event-time" value="${existingEvent ? new Date(existingEvent.start).toTimeString().slice(0,5) : ''}" style="width: 100%; padding: 5px;">
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <label>Description:</label><br>
+                                <textarea id="event-description" style="width: 100%; padding: 5px; height: 60px;">${existingEvent?.description || ''}</textarea>
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <label>Couleur:</label><br>
+                                <select id="event-color" style="width: 100%; padding: 5px;">
+                                    <option value="#3498db" ${existingEvent?.color === '#3498db' ? 'selected' : ''}>🔵 Bleu</option>
+                                    <option value="#e74c3c" ${existingEvent?.color === '#e74c3c' ? 'selected' : ''}>🔴 Rouge</option>
+                                    <option value="#2ecc71" ${existingEvent?.color === '#2ecc71' ? 'selected' : ''}>🟢 Vert</option>
+                                    <option value="#f39c12" ${existingEvent?.color === '#f39c12' ? 'selected' : ''}>🟡 Orange</option>
+                                    <option value="#9b59b6" ${existingEvent?.color === '#9b59b6' ? 'selected' : ''}>🟣 Violet</option>
+                                    <option value="#34495e" ${existingEvent?.color === '#34495e' ? 'selected' : ''}>⚫ Gris</option>
+                                </select>
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <label>
+                                    <input type="checkbox" id="event-allday" ${existingEvent?.isAllDay ? 'checked' : ''}> 
+                                    Toute la journée
+                                </label>
+                            </div>
+                            <div style="text-align: right;">
+                                ${isEdit ? `<button type="button" id="delete-event-btn" style="background: #e74c3c; color: white; padding: 8px 15px; border: none; border-radius: 4px; margin-right: 10px;">Supprimer</button>` : ''}
+                                <button type="button" id="cancel-event-btn" style="background: #95a5a6; color: white; padding: 8px 15px; border: none; border-radius: 4px; margin-right: 10px;">Annuler</button>
+                                <button type="submit" style="background: #27ae60; color: white; padding: 8px 15px; border: none; border-radius: 4px;">Sauvegarder</button>
+                            </div>
+                        </form>
+                    `;
+                    
+                    const form = dialog.querySelector('#event-form');
+                    const cancelBtn = dialog.querySelector('#cancel-event-btn');
+                    const deleteBtn = dialog.querySelector('#delete-event-btn');
+                    
+                    // Gestionnaire pour le formulaire
+                    form.onsubmit = (e) => {
+                        e.preventDefault();
+                        this.saveEvent(existingEvent?.id);
+                        modal.remove();
+                    };
+                    
+                    // Gestionnaire pour le bouton annuler
+                    cancelBtn.onclick = () => {
+                        modal.remove();
+                    };
+                    
+                    // Gestionnaire pour le bouton supprimer
+                    if (deleteBtn && existingEvent) {
+                        deleteBtn.onclick = () => {
+                            this.deleteEvent(existingEvent.id);
+                            modal.remove();
+                        };
+                    }
+                    
+                    modal.appendChild(dialog);
+                    return modal;
+                },
+                
+                saveEvent: function(existingId = null) {
+                    const title = document.getElementById('event-title').value;
+                    const date = document.getElementById('event-date').value;
+                    const time = document.getElementById('event-time').value;
+                    const description = document.getElementById('event-description').value;
+                    const color = document.getElementById('event-color').value;
+                    const isAllDay = document.getElementById('event-allday').checked;
+                    
+                    let startDateTime = new Date(date);
+                    if (time && !isAllDay) {
+                        const [hours, minutes] = time.split(':');
+                        startDateTime.setHours(parseInt(hours), parseInt(minutes));
+                    }
+                    
+                    const eventData = {
+                        title: title,
+                        description: description,
+                        start: startDateTime.toISOString(),
+                        color: color,
+                        isAllDay: isAllDay
+                    };
+                    
+                    const url = existingId ? `/api/events/${existingId}` : '/api/events/';
+                    const method = existingId ? 'PUT' : 'POST';
+                    
+                    fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify(eventData)
+                    }).then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        }
+                        throw new Error('Erreur sauvegarde événement');
+                    }).then(savedEvent => {
+                        if (existingId) {
+                            // Mise à jour
+                            const index = this.events.findIndex(e => e.id == existingId);
+                            if (index !== -1) {
+                                this.events[index] = savedEvent;
+                            }
+                        } else {
+                            // Nouvel événement
+                            this.events.push(savedEvent);
+                        }
+                        this.render();
+                    }).catch(error => {
+                        console.error('Erreur sauvegarde événement:', error);
+                        alert('Erreur lors de la sauvegarde');
+                    });
+                },
+                
+                editEvent: function(eventId) {
+                    const event = this.events.find(e => e.id == eventId);
+                    if (!event) return;
+                    
+                    const modal = this.createEventModal(event);
+                    document.body.appendChild(modal);
+                },
+                
+                deleteEvent: function(eventId) {
+                    if (!confirm('Supprimer cet événement ?')) return;
+                    
+                    fetch(`/api/events/${eventId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    }).then(response => {
+                        if (response.ok) {
+                            this.events = this.events.filter(e => e.id != eventId);
+                            this.render();
+                        }
+                    }).catch(error => {
+                        console.error('Erreur suppression événement:', error);
+                    });
+                },
+                
+                loadEvents: function() {
+                    fetch('/api/events/', {
+                        credentials: 'same-origin'
+                    }).then(response => {
+                        if (!response.ok) {
+                            throw new Error('Erreur chargement événements');
+                        }
+                        return response.json();
+                    }).then(events => {
+                        this.events = events;
+                        this.render();
+                    }).catch(error => {
+                        console.warn('Impossible de charger les événements:', error);
+                    });
+                },
+                
+                previousMonth: function() {
+                    this.currentDate.setMonth(this.currentDate.getMonth() - 1);
+                    this.render();
+                },
+                
+                nextMonth: function() {
+                    this.currentDate.setMonth(this.currentDate.getMonth() + 1);
+                    this.render();
+                }
+            },
+
+            map: {
+                instance: null,
+                markers: [],
+                addingMarker: false,
+                
+                init: function() {
+                    try {
+                        const mapContainer = document.getElementById('map-container');
+                        if (!mapContainer || typeof L === 'undefined') return;
+                        
+                        this.instance = L.map('map-container').setView([48.8566, 2.3522], 2);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(this.instance);
+                        
+                        this.instance.on('click', (e) => {
+                            if (this.addingMarker) {
+                                this.showMarkerDialog(e.latlng);
+                            }
+                        });
+                        
+                        // Charger les marqueurs existants
+                        this.loadMarkers();
+                    } catch (e) {
+                        console.warn('Erreur initialisation carte:', e);
+                        const status = document.getElementById('map-status');
+                        if (status) {
+                            status.textContent = 'Erreur carte';
+                        }
+                    }
+                },
+                
+                showMarkerDialog: function(latlng) {
+                    const name = prompt('Nom du point:', '');
+                    if (name === null) return; // Annulé
+                    
+                    const description = prompt('Description (optionnel):', '');
+                    const color = prompt('Couleur (ex: #FF0000, #00FF00, #0000FF):', '#FF0000');
+                    
+                    this.createMarker({
+                        lat: latlng.lat,
+                        lng: latlng.lng,
+                        name: name || 'Point sans nom',
+                        description: description,
+                        color: color || '#FF0000'
+                    });
+                },
+                
+                createMarker: function(data) {
+                    // Créer l'icône style Google Maps
+                    const markerHtml = `
+                        <div style="position: relative;">
+                            <div style="
+                                background-color: ${data.color};
+                                width: 20px;
+                                height: 20px;
+                                border-radius: 50% 50% 50% 0;
+                                transform: rotate(-45deg);
+                                border: 2px solid white;
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                                position: relative;
+                            "></div>
+                            <div style="
+                                position: absolute;
+                                top: 3px;
+                                left: 3px;
+                                width: 8px;
+                                height: 8px;
+                                background-color: white;
+                                border-radius: 50%;
+                                transform: rotate(45deg);
+                            "></div>
+                        </div>
+                    `;
+                    const customIcon = L.divIcon({
+                        html: markerHtml,
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 20],
+                        popupAnchor: [0, -20]
+                    });
+                    
+                    const marker = L.marker([data.lat, data.lng], {icon: customIcon}).addTo(this.instance);
+                    
+                    // Popup avec informations
+                    let popupContent = `<strong>${data.name}</strong>`;
+                    if (data.description) {
+                        popupContent += `<br>${data.description}`;
+                    }
+                    popupContent += `<br><small>Lat: ${data.lat.toFixed(4)}, Lng: ${data.lng.toFixed(4)}</small>`;
+                    popupContent += `<br><button onclick="WhiteBoard.map.editMarker(${data.id || 'null'})" style="margin: 2px;">✏️ Modifier</button>`;
+                    popupContent += `<button onclick="WhiteBoard.map.deleteMarker(${data.id || 'null'})" style="margin: 2px;">🗑️ Supprimer</button>`;
+                    
+                    marker.bindPopup(popupContent);
+                    marker.markerData = data;
+                    this.markers.push(marker);
+                    
+                    // Sauvegarder sur le serveur si c'est un nouveau marqueur
+                    if (!data.id) {
+                        this.saveMarker(marker, data);
+                    }
+                    
+                    this.addingMarker = false;
+                    const status = document.getElementById('map-status');
+                    if (status) {
+                        status.textContent = `Point "${data.name}" ajouté`;
+                    }
+                },
+                
+                saveMarker: function(marker, data) {
+                    fetch('/api/markers/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify(data)
+                    }).then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        }
+                        throw new Error('Erreur sauvegarde marqueur');
+                    }).then(savedData => {
+                        marker.markerData.id = savedData.id;
+                        // Mettre à jour le popup avec le bon ID
+                        this.updateMarkerPopup(marker);
+                    }).catch(error => {
+                        console.error('Erreur sauvegarde marqueur:', error);
+                    });
+                },
+                
+                updateMarkerPopup: function(marker) {
+                    const data = marker.markerData;
+                    let popupContent = `<strong>${data.name}</strong>`;
+                    if (data.description) {
+                        popupContent += `<br>${data.description}`;
+                    }
+                    popupContent += `<br><small>Lat: ${data.lat.toFixed(4)}, Lng: ${data.lng.toFixed(4)}</small>`;
+                    popupContent += `<br><button onclick="WhiteBoard.map.editMarker(${data.id})" style="margin: 2px;">✏️ Modifier</button>`;
+                    popupContent += `<button onclick="WhiteBoard.map.deleteMarker(${data.id})" style="margin: 2px;">🗑️ Supprimer</button>`;
+                    marker.setPopupContent(popupContent);
+                },
+                
+                loadMarkers: function() {
+                    fetch('/api/markers/', {
+                        credentials: 'same-origin'
+                    }).then(response => {
+                        if (!response.ok) {
+                            throw new Error('Erreur chargement marqueurs');
+                        }
+                        return response.json();
+                    }).then(markers => {
+                        markers.forEach(markerData => {
+                            this.createMarker(markerData);
+                        });
+                    }).catch(error => {
+                        console.warn('Impossible de charger les marqueurs:', error);
+                    });
+                },
+                
+                editMarker: function(id) {
+                    if (!id) return;
+                    
+                    const marker = this.markers.find(m => m.markerData.id == id);
+                    if (!marker) return;
+                    
+                    const data = marker.markerData;
+                    const newName = prompt('Nouveau nom:', data.name);
+                    if (newName === null) return;
+                    
+                    const newDescription = prompt('Nouvelle description:', data.description || '');
+                    const newColor = prompt('Nouvelle couleur:', data.color);
+                    
+                    const updatedData = {
+                        name: newName || data.name,
+                        description: newDescription,
+                        color: newColor || data.color,
+                        lat: data.lat,
+                        lng: data.lng
+                    };
+                    
+                    // Mettre à jour côté serveur
+                    fetch(`/api/markers/${id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify(updatedData)
+                    }).then(response => {
+                        if (response.ok) {
+                            // Mettre à jour localement
+                            marker.markerData = {...data, ...updatedData};
+                            this.updateMarkerPopup(marker);
+                            
+                            // Mettre à jour l'icône si la couleur a changé
+                            if (newColor && newColor !== data.color) {
+                                const markerHtml = `
+                                    <div style="position: relative;">
+                                        <div style="
+                                            background-color: ${newColor};
+                                            width: 20px;
+                                            height: 20px;
+                                            border-radius: 50% 50% 50% 0;
+                                            transform: rotate(-45deg);
+                                            border: 2px solid white;
+                                            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                                            position: relative;
+                                        "></div>
+                                        <div style="
+                                            position: absolute;
+                                            top: 3px;
+                                            left: 3px;
+                                            width: 8px;
+                                            height: 8px;
+                                            background-color: white;
+                                            border-radius: 50%;
+                                            transform: rotate(45deg);
+                                        "></div>
+                                    </div>
+                                `;
+                                const customIcon = L.divIcon({
+                                    html: markerHtml,
+                                    iconSize: [20, 20],
+                                    iconAnchor: [10, 20],
+                                    popupAnchor: [0, -20]
+                                });
+                                marker.setIcon(customIcon);
+                            }
+                        }
+                    }).catch(error => {
+                        console.error('Erreur mise à jour marqueur:', error);
+                    });
+                },
+                
+                deleteMarker: function(id) {
+                    if (!id || !confirm('Supprimer ce point ?')) return;
+                    
+                    fetch(`/api/markers/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    }).then(response => {
+                        if (response.ok) {
+                            // Supprimer visuellement
+                            const markerIndex = this.markers.findIndex(m => m.markerData.id == id);
+                            if (markerIndex !== -1) {
+                                this.instance.removeLayer(this.markers[markerIndex]);
+                                this.markers.splice(markerIndex, 1);
+                            }
+                            
+                            const status = document.getElementById('map-status');
+                            if (status) {
+                                status.textContent = 'Point supprimé';
+                            }
+                        }
+                    }).catch(error => {
+                        console.error('Erreur suppression marqueur:', error);
+                    });
+                },
+                
+                addMarkerMode: function() {
+                    this.addingMarker = true;
+                    const status = document.getElementById('map-status');
+                    if (status) {
+                        status.textContent = 'Cliquez sur la carte pour ajouter un point';
+                    }
+                },
+                
+                clearMarkers: function() {
+                    if (!confirm('Supprimer tous les points ?')) return;
+                    
+                    if (this.instance) {
+                        // Supprimer tous côté serveur
+                        const deletePromises = this.markers.map(marker => {
+                            if (marker.markerData.id) {
+                                return fetch(`/api/markers/${marker.markerData.id}`, {
+                                    method: 'DELETE',
+                                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                                    credentials: 'same-origin'
+                                });
+                            }
+                        }).filter(Boolean);
+                        
+                        Promise.all(deletePromises).then(() => {
+                            // Supprimer visuellement
+                            this.markers.forEach(marker => this.instance.removeLayer(marker));
+                            this.markers = [];
+                            
+                            const status = document.getElementById('map-status');
+                            if (status) {
+                                status.textContent = 'Tous les marqueurs ont été effacés';
+                            }
+                        }).catch(error => {
+                            console.error('Erreur suppression marqueurs:', error);
+                        });
+                    }
+                }
+            },
+
+            roulette: {
+                spin: function() {
+                    const wheel = document.getElementById('roulette-wheel');
+                    const result = document.getElementById('roulette-result');
+                    
+                    if (!wheel || !result) return;
+                    
+                    const notes = document.querySelectorAll('.sticky-note');
+                    let ideas = [];
+                    
+                    notes.forEach(note => {
+                        let content = note.textContent || note.innerText || '';
+                        content = content.trim();
+                        
+                        if (content && 
+                            content !== 'Double-cliquez pour éditer' && 
+                            content !== '×' &&
+                            !content.includes('Double-cliquez pour éditer')) {
+                            // Nettoyer le contenu
+                            const cleanContent = content.replace('×', '').trim();
+                            if (cleanContent) {
+                                ideas.push(cleanContent);
+                            }
+                        }
+                    });
+                    
+                    if (ideas.length === 0) {
+                        result.textContent = '❌ Aucun post-it avec du contenu trouvé ! Ajoutez du texte dans vos post-its.';
+                        return;
+                    }
+                    
+                    const randomIdea = ideas[Math.floor(Math.random() * ideas.length)];
+                    const rotation = Math.random() * 360 + 1440;
+                    
+                    wheel.style.transform = `rotate(${rotation}deg)`;
+                    result.textContent = '🎲 La roulette tourne...';
+                    
+                    setTimeout(() => {
+                        result.textContent = `🎉 Sélection: "${randomIdea}"!`;
+                        result.style.background = '#e8f5e8';
+                        result.style.padding = '10px';
+                        result.style.borderRadius = '8px';
+                        result.style.marginTop = '15px';
+                    }, 3000);
+                }
+            }
+        };
+        
+        // Initialisation au chargement de la page
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                WhiteBoard.init();
+            }, 100);
+        });
+    </script>
+{% endblock %}
