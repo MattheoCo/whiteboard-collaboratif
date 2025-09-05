@@ -34,12 +34,14 @@ RUN composer dump-autoload --optimize
 
 # Create necessary directories and set permissions
 RUN mkdir -p data var/cache var/log \
-    && chmod -R 755 data var \
+    && chmod -R 777 data var \
     && chown -R www-data:www-data data var public
 
 # Configure Apache
-RUN a2enmod rewrite
+RUN a2enmod rewrite headers
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
+COPY docker/start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Set environment variables
 ENV APP_ENV=prod
@@ -54,4 +56,4 @@ RUN sed -i "s/Listen 80/Listen \${PORT}/" /etc/apache2/ports.conf
 EXPOSE ${PORT:-80}
 
 # Start Apache
-CMD sed -i "s/80/${PORT}/" /etc/apache2/sites-available/000-default.conf && apache2-foreground
+CMD ["/usr/local/bin/start.sh"]
