@@ -4,6 +4,9 @@
 chmod -R 777 /var/www/html/data /var/www/html/var 2>/dev/null || true
 chown -R www-data:www-data /var/www/html/data /var/www/html/var 2>/dev/null || true
 
+# Set correct DATABASE_URL for SQLite
+export DATABASE_URL="sqlite:/var/www/html/data/database.db"
+
 # Initialize database if it doesn't exist
 if [ ! -f /var/www/html/data/database.db ] || [ ! -s /var/www/html/data/database.db ]; then
     echo "Initializing database..."
