@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Whiteboard - Setup & Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .button { 
+            display: inline-block; 
+            padding: 10px 20px; 
+            margin: 10px 5px; 
+            background: #007cba; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 5px; 
+        }
+        .button:hover { background: #005a87; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Whiteboard Collaboratif - Setup & Debug</h1>
+        
+        <div class="section">
+            <h2>🔧 Database Setup</h2>
+            <p>Cliquez sur ces liens pour initialiser et tester la base de données :</p>
+            <a href="/setup-db.php" class="button">🗄️ Setup Database</a>
+            <a href="/debug-db.php" class="button">🔍 Debug Database</a>
+            <a href="/create-users.php" class="button">👥 Create Users</a>
+        </div>
+        
+        <div class="section">
+            <h2>🐛 Symfony Debug</h2>
+            <p>Testez les composants Symfony :</p>
+            <a href="/debug-symfony.php" class="button">🔧 Debug Symfony</a>
+            <a href="/init-db.php" class="button">🔄 Init DB (Doctrine)</a>
+        </div>
+        
+        <div class="section">
+            <h2>🚀 Application</h2>
+            <p>Une fois la base de données configurée, testez l'application :</p>
+            <a href="/login" class="button">🔐 Login Page</a>
+            <a href="/" class="button">🎨 Whiteboard</a>
+        </div>
+        
+        <div class="section">
+            <h2>👤 Comptes de test</h2>
+            <p>Utilisez ces comptes pour vous connecter :</p>
+            <ul>
+                <li><strong>diablesse@whiteboard.app</strong> / diablesse123</li>
+                <li><strong>mat@whiteboard.app</strong> / mat123</li>
+            </ul>
+        </div>
+        
+        <div class="section">
+            <h2>📋 Instructions</h2>
+            <ol>
+                <li>Cliquez sur "Setup Database" pour initialiser la base de données</li>
+                <li>Cliquez sur "Debug Database" pour vérifier que tout fonctionne</li>
+                <li>Cliquez sur "Login Page" pour tester la connexion</li>
+                <li>Utilisez les comptes ci-dessus pour vous connecter</li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>
