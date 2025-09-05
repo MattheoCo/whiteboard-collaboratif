@@ -3,7 +3,7 @@
     "description": "Tableau blanc migré vers Symfony",
     "type": "project",
     "require": {
-        "php": "^8.1",
+        "php": "^8.2",
         "symfony/flex": "*",
         "symfony/framework-bundle": "^7.3",
         "symfony/twig-bundle": "^7.3",

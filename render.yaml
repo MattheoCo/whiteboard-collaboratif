@@ -1,0 +1,9 @@
+version: 1
+runtime: php
+buildCommand: composer install --no-dev --optimize-autoloader && php bin/console cache:clear --env=prod
+startCommand: php -S 0.0.0.0:$PORT -t public
+envVars:
+  - key: APP_ENV
+    value: prod
+  - key: DATABASE_URL
+    value: sqlite:///app/data/database.sqlite
