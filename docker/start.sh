@@ -13,6 +13,11 @@ if [ ! -f /var/www/html/data/database.db ] || [ ! -s /var/www/html/data/database
     
     # Create database schema
     php /var/www/html/bin/console doctrine:schema:update --force --env=prod || true
+    
+    # Create default users
+    echo "Creating default users..."
+    php /var/www/html/bin/console app:create-user diablesse@whiteboard.app diablesse123 --env=prod || true
+    php /var/www/html/bin/console app:create-user mat@whiteboard.app mat123 --env=prod || true
 fi
 
 # Start Apache with proper port handling
