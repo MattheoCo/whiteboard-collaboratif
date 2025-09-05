@@ -1,8 +1,0 @@
-{
-  "providers": ["php"],
-  "buildCmd": "composer install --no-dev --optimize-autoloader",
-  "startCmd": "php -S 0.0.0.0:$PORT -t public",
-  "staticAssets": {
-    "public": true
-  }
-}
