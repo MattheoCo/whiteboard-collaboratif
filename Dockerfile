@@ -46,7 +46,6 @@ RUN chmod +x /usr/local/bin/start.sh
 # Set environment variables
 ENV APP_ENV=prod
 ENV APP_DEBUG=false
-ENV DATABASE_URL="sqlite:/var/www/html/data/database.db"
 
 # Railway uses PORT environment variable
 ENV APACHE_LISTEN_PORT=${PORT:-80}
