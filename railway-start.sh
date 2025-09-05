@@ -1,17 +1,24 @@
 #!/bin/bash
 
-# Set environment variables for Railway
-export APP_ENV=prod
-export APP_DEBUG=false
-export DATABASE_URL="sqlite:///app/data/database.db"
+# Ensure bash is in strict mode
+set -e
 
-# Create directories
+# Set environment variables explicitly
+export APP_ENV="${APP_ENV:-prod}"
+export APP_DEBUG="${APP_DEBUG:-false}"
+export DATABASE_URL="${DATABASE_URL:-sqlite:///app/data/database.db}"
+
+echo "=== Railway Startup Script ==="
+echo "APP_ENV: $APP_ENV"
+echo "APP_DEBUG: $APP_DEBUG"
+echo "DATABASE_URL: $DATABASE_URL"
+echo "PORT: $PORT"
+echo "==========================="
+
+# Create directories with proper permissions
 mkdir -p data var/cache var/log
-chmod -R 777 data var 2>/dev/null || true
-
-echo "Environment: APP_ENV=$APP_ENV"
-echo "Database: $DATABASE_URL" 
-echo "Starting server on port $PORT"
+chmod -R 755 data var 2>/dev/null || true
 
 # Start PHP server
-php -S 0.0.0.0:$PORT -t public
+echo "Starting PHP server..."
+exec php -S "0.0.0.0:${PORT}" -t public
