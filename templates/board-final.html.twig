@@ -1,7 +1,9 @@
-{% extends 'base.html.twig' %}
-
-{% block stylesheets %}
-    {{ parent() }}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whiteboard Collaboratif</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body {
@@ -414,9 +416,8 @@
             cursor: pointer;
         }
     </style>
-{% endblock %}
-
-{% block body %}
+</head>
+<body>
 <div class="app-container">
     <div class="sidebar">
         <h3>📅 Calendrier</h3>
@@ -483,15 +484,12 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block javascripts %}
-    {{ parent() }}
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        window.WhiteBoard = {
-            // État global
-            currentTool: 'none',
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    window.WhiteBoard = {
+        // État global
+        currentTool: 'none',
             currentColor: '#000',
             currentSize: 2,
             zoom: 1,
@@ -2136,4 +2134,5 @@
             }, 100);
         });
     </script>
-{% endblock %}
+</body>
+</html>
