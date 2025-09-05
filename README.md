@@ -72,21 +72,25 @@ Prérequis
 
    php -S 127.0.0.1:8000 -t public
 
-7) Ouvrir `http://127.0.0.1:8000/` et `http://127.0.0.1:8000/board`.
+7) Ouvrir `http://127.0.0.1:8000/login` pour vous connecter puis `http://127.0.0.1:8000/board`.
 
-Notes et points à vérifier
+## 👥 Utilisateurs de test
 
-- Les clés Firebase sont incluses dans les templates actuelles. Considérez l'utilisation de variables d'environnement et l'injection via le contrôleur (sécurité).
-- Le template `index.html.twig` contient `{{ firebase_config|raw }}` comme placeholder — il faudra fournir la variable depuis le contrôleur ou config.
-- Pour une intégration plus propre des assets, pensez à ajouter Webpack Encore et déplacer les scripts CSS/JS dans `assets/`.
+- **diablesse@whiteboard.app** / diablesse123
+- **mat@whiteboard.app** / mat123
 
-Prochaines actions possibles
+## Notes techniques
 
-- Initialiser un projet Symfony complet dans ce workspace (je peux lancer Composer ici si vous voulez).
-- Déplacer les JavaScript/CSS locaux dans `public/` et corriger les chemins.
-- Rendre la page d'index utilisable avec une variable twig pour la config Firebase (sécurisé via .env).
+- Application utilise l'authentification Symfony native (sessions PHP)
+- Base de données SQLite pour la persistance
+- Interface collaborative en temps réel
+- Déploiement optimisé pour Railway.app
 
-Dites-moi quelle option vous préférez: je peux initier le projet Symfony ici (exécuter Composer) ou vous fournir les instructions pas-à-pas pour le faire localement.
+## Prochaines actions possibles
+
+- Ajouter de nouveaux utilisateurs via `php bin/console app:create-user email password`
+- Personnaliser l'interface selon vos besoins
+- Configurer un domaine personnalisé sur Railway
 
 ---
 

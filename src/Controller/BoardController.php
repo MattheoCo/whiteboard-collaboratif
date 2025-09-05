@@ -11,9 +11,13 @@ use Symfony\Component\Routing\Annotation\Route;
 class BoardController extends AbstractController
 {
     #[Route('/', name: 'app_index')]
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        return $this->render('index.html.twig');
+        $session = $request->getSession();
+        if ($session && $session->has('user_id')) {
+            return new RedirectResponse('/board');
+        }
+        return new RedirectResponse('/login');
     }
 
     #[Route('/board', name: 'app_board')]
