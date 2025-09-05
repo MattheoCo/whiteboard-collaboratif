@@ -3,8 +3,8 @@
 echo "<h1>Migration des données vers Symfony</h1>";
 
 try {
-    $sourceDb = '/var/www/html/data/database.db';
-    $targetDb = '/var/www/html/var/data_prod.db';
+    $sourceDb = dirname(__DIR__) . '/data/database.db';
+    $targetDb = dirname(__DIR__) . '/var/data_prod.db';
     
     echo "Source: $sourceDb<br>";
     echo "Target: $targetDb<br>";

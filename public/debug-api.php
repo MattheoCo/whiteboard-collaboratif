@@ -3,14 +3,13 @@
 echo "<h1>Debug des API Symfony</h1>";
 
 try {
-    chdir('/var/www/html');
-    require_once '/var/www/html/vendor/autoload.php';
+    require_once dirname(__DIR__) . '/vendor/autoload.php';
     
     $_ENV['APP_ENV'] = 'prod';
     $_ENV['APP_DEBUG'] = 'false';
     
     $dotenv = new Symfony\Component\Dotenv\Dotenv();
-    $dotenv->loadEnv('/var/www/html/.env');
+    $dotenv->loadEnv(dirname(__DIR__) . '/.env');
     
     // Créer le kernel Symfony
     $kernel = new App\Kernel('prod', false);
@@ -71,12 +70,11 @@ try {
     // Test de création d'un sticky note
     try {
         $stickyNote = new App\Entity\StickyNote();
-        $stickyNote->setContent('Test note');
+        $stickyNote->setText('Test note');
         $stickyNote->setX(100);
         $stickyNote->setY(100);
         $stickyNote->setColor('#ffeb3b');
-        $stickyNote->setBoardId('default');
-        $stickyNote->setCreatedAt(new DateTime());
+        $stickyNote->setTimestamp(new DateTime());
         
         $entityManager->persist($stickyNote);
         $entityManager->flush();
