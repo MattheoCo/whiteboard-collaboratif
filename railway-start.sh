@@ -27,6 +27,23 @@ if [ -f "var/data_prod.db" ]; then
 	cp var/data_prod.db app/data/database.db || true
 fi
 
+# If no DB exists at the expected location, try to create the schema from entities
+if [ ! -f "app/data/database.db" ]; then
+	echo "No app/data/database.db found after copy step. Attempting to create schema via Doctrine..."
+	# Ensure composer dependencies are installed (no-op if already present)
+	if [ -f composer.json ]; then
+		composer install --no-interaction --prefer-dist || true
+	fi
+
+	# Try to create the schema (guard with || true to avoid exit on errors)
+	php bin/console doctrine:schema:create --env=prod --no-interaction || true
+
+	if [ -f "var/data_prod.db" ] && [ ! -f "app/data/database.db" ]; then
+		echo "Post-schema-create: copying var/data_prod.db to app/data/database.db"
+		cp var/data_prod.db app/data/database.db || true
+	fi
+fi
+
 # Start PHP server
 echo "Starting PHP server..."
 exec php -S "0.0.0.0:${PORT}" -t public
