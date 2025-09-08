@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>App status</title>
+    <style>body{font-family: Arial, sans-serif; padding: 20px}</style>
+  </head>
+  <body>
+    <h1>Application status</h1>
+    <p>Use the button below to reset the SQLite database (requires token).</p>
+    <form method="post" action="/status/reset">
+      <label>Token: <input type="text" name="token" placeholder="Paste RESET_TOKEN here"></label>
+      <button type="submit">Reset database</button>
+    </form>
+  </body>
+</html>
