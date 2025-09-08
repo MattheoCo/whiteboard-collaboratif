@@ -660,13 +660,20 @@
             },
 
             getRelativeCoords: function(e) {
-                const canvasRect = this.canvas.getBoundingClientRect();
-                const clientX = e.clientX - canvasRect.left;
-                const clientY = e.clientY - canvasRect.top;
+                // Obtenir les coordonnées de la fenêtre d'affichage du whiteboard
+                const whiteboardRect = this.whiteboard.getBoundingClientRect();
+                
+                // Coordonnées relatives au viewport du whiteboard
+                const viewportX = e.clientX - whiteboardRect.left;
+                const viewportY = e.clientY - whiteboardRect.top;
+                
+                // Convertir en coordonnées absolues en tenant compte du zoom et du pan
+                const absoluteX = (viewportX - this.panX) / this.zoom;
+                const absoluteY = (viewportY - this.panY) / this.zoom;
                 
                 return {
-                    x: (clientX - this.panX) / this.zoom,
-                    y: (clientY - this.panY) / this.zoom
+                    x: absoluteX,
+                    y: absoluteY
                 };
             },
 
@@ -1825,36 +1832,46 @@
                 },
                 
                 createMarker: function(data) {
-                    // Créer l'icône style Google Maps
+                    // Créer une icône de marqueur plus jolie et mieux optimisée
                     const markerHtml = `
-                        <div style="position: relative;">
-                            <div style="
-                                background-color: ${data.color};
-                                width: 20px;
-                                height: 20px;
-                                border-radius: 50% 50% 50% 0;
-                                transform: rotate(-45deg);
-                                border: 2px solid white;
-                                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                                position: relative;
-                            "></div>
+                        <div style="
+                            position: relative;
+                            width: 24px;
+                            height: 30px;
+                            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+                        ">
+                            <!-- Corps principal du marqueur -->
                             <div style="
                                 position: absolute;
-                                top: 3px;
-                                left: 3px;
+                                top: 0;
+                                left: 0;
+                                width: 24px;
+                                height: 24px;
+                                background: ${data.color || '#FF0000'};
+                                border: 2px solid white;
+                                border-radius: 50% 50% 50% 0;
+                                transform: rotate(-45deg);
+                                transform-origin: 0 70%;
+                            "></div>
+                            <!-- Point blanc au centre -->
+                            <div style="
+                                position: absolute;
+                                top: 6px;
+                                left: 6px;
                                 width: 8px;
                                 height: 8px;
-                                background-color: white;
+                                background: white;
                                 border-radius: 50%;
-                                transform: rotate(45deg);
+                                z-index: 2;
                             "></div>
                         </div>
                     `;
+                    
                     const customIcon = L.divIcon({
                         html: markerHtml,
-                        iconSize: [20, 20],
-                        iconAnchor: [10, 20],
-                        popupAnchor: [0, -20]
+                        iconSize: [24, 30],
+                        iconAnchor: [12, 30], // Point d'ancrage au bas du marqueur
+                        popupAnchor: [0, -30] // Position du popup
                     });
                     
                     const marker = L.marker([data.lat, data.lng], {icon: customIcon}).addTo(this.instance);
@@ -1975,34 +1992,43 @@
                             // Mettre à jour l'icône si la couleur a changé
                             if (newColor && newColor !== data.color) {
                                 const markerHtml = `
-                                    <div style="position: relative;">
-                                        <div style="
-                                            background-color: ${newColor};
-                                            width: 20px;
-                                            height: 20px;
-                                            border-radius: 50% 50% 50% 0;
-                                            transform: rotate(-45deg);
-                                            border: 2px solid white;
-                                            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                                            position: relative;
-                                        "></div>
+                                    <div style="
+                                        position: relative;
+                                        width: 24px;
+                                        height: 30px;
+                                        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+                                    ">
+                                        <!-- Corps principal du marqueur -->
                                         <div style="
                                             position: absolute;
-                                            top: 3px;
-                                            left: 3px;
+                                            top: 0;
+                                            left: 0;
+                                            width: 24px;
+                                            height: 24px;
+                                            background: ${newColor};
+                                            border: 2px solid white;
+                                            border-radius: 50% 50% 50% 0;
+                                            transform: rotate(-45deg);
+                                            transform-origin: 0 70%;
+                                        "></div>
+                                        <!-- Point blanc au centre -->
+                                        <div style="
+                                            position: absolute;
+                                            top: 6px;
+                                            left: 6px;
                                             width: 8px;
                                             height: 8px;
-                                            background-color: white;
+                                            background: white;
                                             border-radius: 50%;
-                                            transform: rotate(45deg);
+                                            z-index: 2;
                                         "></div>
                                     </div>
                                 `;
                                 const customIcon = L.divIcon({
                                     html: markerHtml,
-                                    iconSize: [20, 20],
-                                    iconAnchor: [10, 20],
-                                    popupAnchor: [0, -20]
+                                    iconSize: [24, 30],
+                                    iconAnchor: [12, 30],
+                                    popupAnchor: [0, -30]
                                 });
                                 marker.setIcon(customIcon);
                             }
