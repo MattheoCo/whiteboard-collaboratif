@@ -12,8 +12,8 @@ class ResetController extends AbstractController
     #[Route('/status/reset', name: 'status_reset', methods: ['POST','GET'])]
     public function reset(Request $req): Response
     {
-        // If RESET_TOKEN is set, require it. If not set, allow actions without token.
-        $token = getenv('RESET_TOKEN') ?: ($_ENV['RESET_TOKEN'] ?? null);
+    // If RESET_TOKEN is set, require it. If not set, allow actions without token.
+    $token = getenv('RESET_TOKEN') ?: ($_ENV['RESET_TOKEN'] ?? null);
         $provided = $req->query->get('token') ?: $req->request->get('token');
 
         if ($token && $provided !== $token) {
@@ -27,6 +27,14 @@ class ResetController extends AbstractController
         $appDb = $projectDir . '/app/data/database.db';
 
         $result = [];
+
+        // Simple file logging for debugging from within containers where stdout may be captured elsewhere
+        $logFile = $projectDir . '/var/log/reset.log';
+        $log = function($msg) use ($logFile) {
+            $line = '['.date('Y-m-d H:i:s').'] ' . $msg . "\n";
+            @file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
+        };
+        $log("reset called; method=" . $req->getMethod() . "; action param=" . ($req->request->get('action') ?? $req->query->get('action') ?? 'none'));
 
         // Helper to run commands and capture output
         $run = function(string $cmd) {
@@ -69,6 +77,9 @@ class ResetController extends AbstractController
             $result[] = ['error' => 'unknown action'];
         }
 
-        return $this->json(['status' => 'ok', 'action' => $action, 'result' => $result]);
+    $log('action completed; rc summary: ' . json_encode(array_map(function($r){ return $r['rc'] ?? null; }, array_filter($result, function($v){ return is_array($v) && isset($v['rc']); }))));
+    $log('detailed result: ' . json_encode($result));
+
+    return $this->json(['status' => 'ok', 'action' => $action, 'result' => $result]);
     }
 }

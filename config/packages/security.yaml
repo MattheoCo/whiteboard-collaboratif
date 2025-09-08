@@ -18,12 +18,18 @@ security:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
 
+        status:
+            pattern: ^/status
+            security: false
+
         login:
             pattern: ^/login
             security: false
 
         main:
             pattern: ^/
+            # allow anonymous access so tools like /status/reset can be called without triggering a login redirect
+            lazy: true
             provider: db_users
             form_login:
                 login_path: app_login
