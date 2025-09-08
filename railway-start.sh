@@ -16,8 +16,16 @@ echo "PORT: $PORT"
 echo "==========================="
 
 # Create directories with proper permissions
-mkdir -p data var/cache var/log
-chmod -R 755 data var 2>/dev/null || true
+mkdir -p data var/cache var/log app/data
+chmod -R 755 data var app 2>/dev/null || true
+
+# If a Symfony-produced production DB exists (var/data_prod.db), copy it to the
+# default location used by the Railway startup default (app/data/database.db)
+# so the application sees the populated database when DATABASE_URL is not set.
+if [ -f "var/data_prod.db" ]; then
+	echo "Found var/data_prod.db - copying to app/data/database.db"
+	cp var/data_prod.db app/data/database.db || true
+fi
 
 # Start PHP server
 echo "Starting PHP server..."
