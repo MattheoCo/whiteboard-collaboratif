@@ -1833,46 +1833,30 @@
                 
                 createMarker: function(data) {
                     // Créer une icône de marqueur plus jolie et mieux optimisée
-                    const markerHtml = `
-                        <div style="
-                            position: relative;
-                            width: 24px;
-                            height: 30px;
-                            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-                        ">
-                            <!-- Corps principal du marqueur -->
-                            <div style="
-                                position: absolute;
-                                top: 0;
-                                left: 0;
-                                width: 24px;
-                                height: 24px;
-                                background: ${data.color || '#FF0000'};
-                                border: 2px solid white;
-                                border-radius: 50% 50% 50% 0;
-                                transform: rotate(-45deg);
-                                transform-origin: 0 70%;
-                            "></div>
-                            <!-- Point blanc au centre -->
-                            <div style="
-                                position: absolute;
-                                top: 6px;
-                                left: 6px;
-                                width: 8px;
-                                height: 8px;
-                                background: white;
-                                border-radius: 50%;
-                                z-index: 2;
-                            "></div>
-                        </div>
-                    `;
-                    
-                    const customIcon = L.divIcon({
-                        html: markerHtml,
-                        iconSize: [24, 30],
-                        iconAnchor: [12, 30], // Point d'ancrage au bas du marqueur
-                        popupAnchor: [0, -30] // Position du popup
-                    });
+                                        const markerHtml = `
+                                                <div style="position:relative;width:30px;height:42px;">
+                                                    <svg width="30" height="42" viewBox="0 0 30 42" style="overflow:visible;filter:drop-shadow(0 3px 5px rgba(0,0,0,0.35));">
+                                                        <defs>
+                                                            <linearGradient id="grad-pin" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="0%" stop-color="${data.color || '#FF0000'}" stop-opacity="0.95" />
+                                                                <stop offset="100%" stop-color="${data.color || '#FF0000'}" stop-opacity="0.75" />
+                                                            </linearGradient>
+                                                        </defs>
+                                                        <!-- Outer pin shape -->
+                                                        <path d="M15 0 C8 0 2.5 5.5 2.5 12.4c0 8.8 9.4 16.6 11.7 18.4a1.5 1.5 0 0 0 1.6 0c2.3-1.8 11.7-9.6 11.7-18.4C27.5 5.5 22 0 15 0z" fill="url(#grad-pin)" stroke="white" stroke-width="2" />
+                                                        <!-- Inner circle -->
+                                                        <circle cx="15" cy="12" r="5" fill="white" />
+                                                        <!-- Pointer (small triangle extension) -->
+                                                        <path d="M15 30 L13 41 L17 41 Z" fill="${data.color || '#FF0000'}" stroke="white" stroke-width="1" />
+                                                    </svg>
+                                                </div>`;
+
+                                        const customIcon = L.divIcon({
+                                                html: markerHtml,
+                                                iconSize: [30, 42],
+                                                iconAnchor: [15, 42], // pointe exacte
+                                                popupAnchor: [0, -40]
+                                        });
                     
                     const marker = L.marker([data.lat, data.lng], {icon: customIcon}).addTo(this.instance);
                     
@@ -1991,45 +1975,26 @@
                             
                             // Mettre à jour l'icône si la couleur a changé
                             if (newColor && newColor !== data.color) {
-                                const markerHtml = `
-                                    <div style="
-                                        position: relative;
-                                        width: 24px;
-                                        height: 30px;
-                                        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-                                    ">
-                                        <!-- Corps principal du marqueur -->
-                                        <div style="
-                                            position: absolute;
-                                            top: 0;
-                                            left: 0;
-                                            width: 24px;
-                                            height: 24px;
-                                            background: ${newColor};
-                                            border: 2px solid white;
-                                            border-radius: 50% 50% 50% 0;
-                                            transform: rotate(-45deg);
-                                            transform-origin: 0 70%;
-                                        "></div>
-                                        <!-- Point blanc au centre -->
-                                        <div style="
-                                            position: absolute;
-                                            top: 6px;
-                                            left: 6px;
-                                            width: 8px;
-                                            height: 8px;
-                                            background: white;
-                                            border-radius: 50%;
-                                            z-index: 2;
-                                        "></div>
-                                    </div>
-                                `;
-                                const customIcon = L.divIcon({
-                                    html: markerHtml,
-                                    iconSize: [24, 30],
-                                    iconAnchor: [12, 30],
-                                    popupAnchor: [0, -30]
-                                });
+                                                                const markerHtml = `
+                                                                        <div style="position:relative;width:30px;height:42px;">
+                                                                            <svg width="30" height="42" viewBox="0 0 30 42" style="overflow:visible;filter:drop-shadow(0 3px 5px rgba(0,0,0,0.35));">
+                                                                                <defs>
+                                                                                    <linearGradient id="grad-pin-update" x1="0" y1="0" x2="0" y2="1">
+                                                                                        <stop offset="0%" stop-color="${newColor}" stop-opacity="0.95" />
+                                                                                        <stop offset="100%" stop-color="${newColor}" stop-opacity="0.75" />
+                                                                                    </linearGradient>
+                                                                                </defs>
+                                                                                <path d="M15 0 C8 0 2.5 5.5 2.5 12.4c0 8.8 9.4 16.6 11.7 18.4a1.5 1.5 0 0 0 1.6 0c2.3-1.8 11.7-9.6 11.7-18.4C27.5 5.5 22 0 15 0z" fill="url(#grad-pin-update)" stroke="white" stroke-width="2" />
+                                                                                <circle cx="15" cy="12" r="5" fill="white" />
+                                                                                <path d="M15 30 L13 41 L17 41 Z" fill="${newColor}" stroke="white" stroke-width="1" />
+                                                                            </svg>
+                                                                        </div>`;
+                                                                const customIcon = L.divIcon({
+                                                                        html: markerHtml,
+                                                                        iconSize: [30, 42],
+                                                                        iconAnchor: [15, 42],
+                                                                        popupAnchor: [0, -40]
+                                                                });
                                 marker.setIcon(customIcon);
                             }
                         }
