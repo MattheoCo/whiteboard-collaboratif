@@ -2,15 +2,52 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>App status</title>
-    <style>body{font-family: Arial, sans-serif; padding: 20px}</style>
+    <title>Application status & DB tools</title>
+    <style>
+      body{font-family: Inter, Arial, sans-serif; padding:24px; background:#f6f8fa}
+      .card{background:white;padding:18px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);max-width:720px}
+      h1{margin-top:0}
+      .actions{display:flex;gap:12px;margin-top:12px}
+      button{padding:10px 14px;border-radius:6px;border:0;cursor:pointer}
+      .danger{background:#e74c3c;color:white}
+      .primary{background:#007bff;color:white}
+      .info{background:#17a2b8;color:white}
+      input[type=text]{padding:8px;border-radius:6px;border:1px solid #ddd;width:300px}
+      pre{background:#f1f3f5;padding:12px;border-radius:6px;overflow:auto}
+    </style>
   </head>
   <body>
-    <h1>Application status</h1>
-    <p>Use the button below to reset the SQLite database (requires token).</p>
-    <form method="post" action="/status/reset">
-      <label>Token: <input type="text" name="token" placeholder="Paste RESET_TOKEN here"></label>
-      <button type="submit">Reset database</button>
-    </form>
+    <div class="card">
+      <h1>Application status & DB tools</h1>
+      <p>Use the tools below to reset the SQLite database, recreate the schema, or import legacy users.</p>
+
+      <div>
+        <label>Reset token (leave empty if not configured): <input id="token" type="text" placeholder="optional RESET_TOKEN"></label>
+      </div>
+
+      <div class="actions">
+        <button class="danger" id="btn-reset">Reset DB (delete & recreate)</button>
+        <button class="primary" id="btn-users">Create default users</button>
+        <button class="info" id="btn-import">Import legacy users (if present)</button>
+      </div>
+
+      <h3>Result</h3>
+      <pre id="output">—</pre>
+    </div>
+
+    <script>
+      async function call(action){
+        const token = document.getElementById('token').value || '';
+        const form = new FormData();
+        form.append('action', action);
+        if(token) form.append('token', token);
+        const res = await fetch('/status/reset', {method:'POST', body: form});
+        const txt = await res.text();
+        document.getElementById('output').textContent = txt;
+      }
+      document.getElementById('btn-reset').addEventListener('click', ()=>call('reset_db'));
+      document.getElementById('btn-users').addEventListener('click', ()=>call('create_users'));
+      document.getElementById('btn-import').addEventListener('click', ()=>call('import_users'));
+    </script>
   </body>
 </html>
